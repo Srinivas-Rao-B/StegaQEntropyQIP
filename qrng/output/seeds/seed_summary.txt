@@ -1,0 +1,37 @@
+======================================================================
+STEGAQENTROPY QUANTUM SEED SUMMARY
+======================================================================
+
+Generated Seeds : 26
+Total Pool Bits : 3145728
+Consumed Bits   : 425984
+Remaining Bits  : 2719744
+
+Seed Allocation
+------------------------------------------------------------
+master_seed                        16384 bits
+session_seed                       16384 bits
+region_seed                        16384 bits
+payload_seed                       16384 bits
+block_seed                         16384 bits
+chunk_seed                         16384 bits
+dwt_seed                           16384 bits
+entropy_seed                       16384 bits
+gradient_seed                      16384 bits
+threshold_seed                     16384 bits
+adaptive_embedding_seed            16384 bits
+linear_regression_seed             16384 bits
+ga_seed                            16384 bits
+aco_seed                           16384 bits
+pso_seed                           16384 bits
+qkd_seed                           16384 bits
+permutation_seed                   16384 bits
+position_seed                      16384 bits
+coefficient_seed                   16384 bits
+noise_seed                         16384 bits
+authentication_seed                16384 bits
+synchronization_seed               16384 bits
+receiver_seed                      16384 bits
+extraction_seed                    16384 bits
+integrity_seed                     16384 bits
+verification_seed                  16384 bits

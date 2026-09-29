@@ -1,0 +1,16 @@
+qiskit==1.0.2
+qiskit-aer==0.14.0.1
+qiskit-ibm-runtime==0.21.1
+
+torch==2.1.2
+torchvision==0.16.2
+
+numpy==1.26.4
+scipy==1.12.0
+PyWavelets==1.5.0
+
+opencv-python==4.9.0.80
+scikit-image==0.22.0
+pandas==2.2.1
+matplotlib==3.8.3
+pillow==10.2.0

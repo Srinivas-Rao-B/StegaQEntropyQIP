@@ -7,12 +7,7 @@ import pandas as pd
 import tensorflow as tf
 
 tf.get_logger().setLevel("ERROR")
-# The SQE-Net quantum circuit (SQENetQuantumLayer) evolves a genuine complex
-# state vector; TF's autodiff correctly backpropagates only the real part of
-# the Pauli-Z measurement into the angle-projection weights (which is exactly
-# what we want, since the model's loss is real-valued), and logs an
-# informational "discarding imaginary part" notice while doing so. That
-# notice is expected here and does not indicate a problem, so it is silenced.
+
 import warnings as _warnings
 _warnings.filterwarnings(
     "ignore",
@@ -33,6 +28,8 @@ import seaborn as sns
 ABLATE_SQE_NET = False
 ABLATE_QOQA = False
 ABLATE_ACER = False
+import runpy
+runpy.run_module("dataset_cleaner", run_name="__main__")
 try:
     from acer_simulator import ACERSimulatorBackend  # type: ignore[import-not-found]
 except ImportError:

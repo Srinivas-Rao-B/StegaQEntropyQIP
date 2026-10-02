@@ -86,7 +86,7 @@ QBER_THRESHOLD = 0.11
 
 # --- IBM Quantum Hardware Configuration ---
 USE_REAL_IBM_HARDWARE = False  # Set to True to execute on real IBM quantum hardware
-IBM_API_TOKEN = "BDPK4kcunb5KV8r_3YEh-CpPGIEpKwOF1lspGy-YZKnN"
+IBM_API_TOKEN = "YOUR API HERE"
 
 
 class QRNG:

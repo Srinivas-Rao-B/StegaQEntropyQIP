@@ -58,7 +58,7 @@ REGION_METADATA_CSV = (
 )
 
 OUTPUT_DIR = BASE_DIR / "output" / "adaptive_embedding"
-STEGO_IMAGE = OUTPUT_DIR / "adaptive_stego.npy"
+STEGO_IMAGE = OUTPUT_DIR / "adaptive_stego_float.tiff"
 EXTRACTED_MESSAGE = OUTPUT_DIR / "extracted_message.bin"
 PLAN_JSON = OUTPUT_DIR / "adaptive_embedding_plan.json"
 METRICS_JSON = OUTPUT_DIR / "adaptive_embedding_metrics.json"
@@ -2795,64 +2795,15 @@ def calculate_metrics(
         dtype=np.float64
     )
 
-    original_uint8 = np.rint(
-        np.clip(
-            original,
-            0.0,
-            255.0
-        )
-    ).astype(
-        np.uint8
-    )
-
-    stego_uint8 = np.rint(
-        np.clip(
-            stego,
-            0.0,
-            255.0
-        )
-    ).astype(
-        np.uint8
-    )
+    # ============================================================
+    # FLOATING-POINT DIFFERENCE
+    # ============================================================
 
     difference = (
-        stego_uint8.astype(
-            np.float64
-        )
+        stego
         -
-        original_uint8.astype(
-            np.float64
-        )
+        original
     )
-
-    float_difference = (
-    stego.astype(
-        np.float64
-    )
-    -
-    original.astype(
-        np.float64
-    )
-)
-
-    float_mse = float(
-        np.mean(
-            float_difference ** 2
-        )
-    )
-
-    if float_mse <= 1e-16:
-        float_psnr = float("inf")
-    else:
-        float_psnr = float(
-            10.0
-            *
-            np.log10(
-                (255.0 ** 2)
-                /
-                float_mse
-            )
-        )
 
     mse = float(
         np.mean(
@@ -2874,40 +2825,48 @@ def calculate_metrics(
         )
     )
 
-    if mse <= 0.0:
+    if mse <= 1e-16:
         psnr = float("inf")
     else:
         psnr = float(
             10.0
-            * np.log10(
+            *
+            np.log10(
                 (
                     255.0 ** 2
                 )
-                / mse
+                /
+                mse
             )
         )
 
+    # ============================================================
+    # SSIM - FLOATING POINT
+    # ============================================================
+
     ssim = float(
         structural_similarity(
-            original_uint8,
-            stego_uint8,
-            data_range=255
+            original,
+            stego,
+            data_range=255.0
         )
     )
 
-
+    # ============================================================
+    # HISTOGRAMS - FLOATING POINT
+    # ============================================================
 
     original_histogram = np.histogram(
-        original_uint8,
+        original,
         bins=256,
-        range=(0, 256),
+        range=(0.0, 256.0),
         density=True
     )[0]
 
     stego_histogram = np.histogram(
-        stego_uint8,
+        stego,
         bins=256,
-        range=(0, 256),
+        range=(0.0, 256.0),
         density=True
     )[0]
 
@@ -2915,12 +2874,14 @@ def calculate_metrics(
 
     original_probability = (
         original_histogram
-        + histogram_epsilon
+        +
+        histogram_epsilon
     )
 
     stego_probability = (
         stego_histogram
-        + histogram_epsilon
+        +
+        histogram_epsilon
     )
 
     original_probability /= np.sum(
@@ -2931,6 +2892,10 @@ def calculate_metrics(
         stego_probability
     )
 
+    # ============================================================
+    # HISTOGRAM SIMILARITY
+    # ============================================================
+
     histogram_similarity = float(
         np.sum(
             np.sqrt(
@@ -2940,6 +2905,10 @@ def calculate_metrics(
             )
         )
     )
+
+    # ============================================================
+    # KL DIVERGENCE
+    # ============================================================
 
     kl_divergence = float(
         np.sum(
@@ -2953,19 +2922,24 @@ def calculate_metrics(
         )
     )
 
+    # ============================================================
+    # ENTROPY
+    # ============================================================
+
     def image_entropy(
         image
     ):
         histogram = np.histogram(
             image,
             bins=256,
-            range=(0, 256),
+            range=(0.0, 256.0),
             density=True
         )[0]
 
         histogram = (
             histogram
-            + histogram_epsilon
+            +
+            histogram_epsilon
         )
 
         histogram /= np.sum(
@@ -2983,45 +2957,59 @@ def calculate_metrics(
         )
 
     original_entropy = image_entropy(
-        original_uint8
+        original
     )
 
     stego_entropy = image_entropy(
-        stego_uint8
+        stego
     )
 
+    # ============================================================
+    # NPCR - FLOATING POINT
+    # ============================================================
+
     changed_pixels = (
-        original_uint8
-        !=
-        stego_uint8
+        np.abs(
+            stego
+            -
+            original
+        )
+        >
+        1e-12
     )
 
     npcr = float(
         np.mean(
             changed_pixels
         )
-        * 100.0
+        *
+        100.0
     )
+
+    # ============================================================
+    # UACI - FLOATING POINT
+    # ============================================================
 
     uaci = float(
         np.mean(
             np.abs(
-                stego_uint8.astype(
-                    np.float64
-                )
+                stego
                 -
-                original_uint8.astype(
-                    np.float64
-                )
+                original
             )
             /
             255.0
         )
-        * 100.0
+        *
+        100.0
     )
 
+    # ============================================================
+    # BPP
+    # ============================================================
+
     total_pixels = int(
-        original_uint8.size
+        original.size
     )
 
     bpp = float(
@@ -3029,6 +3017,10 @@ def calculate_metrics(
         /
         total_pixels
     )
+
+    # ============================================================
+    # MAXIMUM FLOATING-POINT CHANGE
+    # ============================================================
 
     maximum_absolute_change = float(
         np.max(
@@ -3038,12 +3030,19 @@ def calculate_metrics(
         )
     )
 
+    # ============================================================
+    # DISPLAY RESULTS
+    # ============================================================
+
     print()
     print(
         "=" * 70
     )
     print(
         "SENDER IMAGE QUALITY METRICS"
+    )
+    print(
+        "FLOATING-POINT DOMAIN"
     )
     print(
         "=" * 70
@@ -3055,37 +3054,27 @@ def calculate_metrics(
     )
 
     print(
-        "FSIM                          : NILL"
-        
+        "FSIM                         : NILL"
     )
 
     print(
         f"MSE                          : "
-        f"{mse:.12f}"
+        f"{mse:.12e}"
     )
 
     print(
         f"MAE                          : "
-            f"{mae:.12f}"
-        )
+        f"{mae:.12e}"
+    )
 
     print(
         f"RMSE                         : "
-        f"{rmse:.12f}"
+        f"{rmse:.12e}"
     )
 
     print(
         f"PSNR                         : "
         f"{psnr:.6f} dB"
-    )
-    print(
-        f"Floating-Point MSE           : "
-        f"{float_mse:.12e}"
-    )
-
-    print(
-        f"Floating-Point PSNR          : "
-        f"{float_psnr:.6f} dB"
     )
 
     print(
@@ -3100,7 +3089,7 @@ def calculate_metrics(
 
     print(
         f"KL Divergence                : "
-        f"{kl_divergence:.12f}"
+        f"{kl_divergence:.12e}"
     )
 
     print(
@@ -3115,7 +3104,7 @@ def calculate_metrics(
 
     print(
         f"UACI                         : "
-        f"{uaci:.12f} %"
+        f"{uaci:.12e} %"
     )
 
     print(
@@ -3129,32 +3118,39 @@ def calculate_metrics(
     )
 
     print(
-        f"Maximum 8-bit Change         : "
-        f"{maximum_absolute_change:.0f}"
+        f"Maximum Absolute Change      : "
+        f"{maximum_absolute_change:.12e}"
     )
 
     print("=" * 70)
-    # Run Steganalysis Check
-    steganalysis_results = calculate_and_print_steganalysis(original, stego)
+
+    # ============================================================
+    # STEGANALYSIS
+    # ============================================================
+
+    steganalysis_results = calculate_and_print_steganalysis(
+        original,
+        stego
+    )
+
     return {
         "ssim": ssim,
         "mse": mse,
         "rmse": rmse,
         "psnr": psnr,
+        "mae": mae,
         "original_entropy": original_entropy,
         "stego_entropy": stego_entropy,
         "kl_divergence": kl_divergence,
-        "histogram_similarity":
-            histogram_similarity,
+        "histogram_similarity": histogram_similarity,
         "npcr": npcr,
         "uaci": uaci,
         "ber": float(ber),
         "bpp": bpp,
-        "maximum_absolute_change":
-            maximum_absolute_change,
+        "maximum_absolute_change": maximum_absolute_change,
+        "embedded_bits": int(embedded_bits),
         "steganalysis": steganalysis_results
     }
-
 def save_stego_view(
     stego_image
 ):
@@ -3176,6 +3172,7 @@ def save_stego_view(
     image.save(
         STEGO_VIEW_IMAGE
     )
+    
 
     return STEGO_VIEW_IMAGE
 def create_operations_from_chunk_mapping(
@@ -4465,10 +4462,17 @@ def sender():
         )
        
 
-        save_array(
+        # Save the actual floating-point stego image
+        stego_float = stego_image.astype(np.float32)
+
+        Image.fromarray(
+            stego_float,
+            mode="F"
+        ).save(
             STEGO_IMAGE,
-            stego_image
+            format="TIFF"
         )
+        
 
         stego_uint8 = np.rint(
             np.clip(
@@ -4492,11 +4496,21 @@ def sender():
             STEGO_VIEW_IMAGE
         )
 
-        embedded_bits = sum(
+        message_bits = sum(
             len(
                 chunk["bits"]
             )
-            for chunk in enhanced_chunks.values()
+            for chunk in chunks.values()
+        )
+
+        qkd_subkey_bits = (
+            len(chunks)
+            * SUBKEY_BITS
+        )
+
+        embedded_bits = (
+            message_bits
+            + qkd_subkey_bits
         )
 
         metrics = calculate_metrics(
@@ -4505,6 +4519,9 @@ def sender():
             embedded_bits,
             0.0
         )
+        metrics["message_bits"] = int(message_bits)
+        metrics["qkd_subkey_bits"] = int(qkd_subkey_bits)
+        metrics["embedded_bits"] = int(embedded_bits)
 
         master_fingerprint = hashlib.sha256(
             master_key
@@ -5654,7 +5671,97 @@ def display_image_in_terminal(
         "=" * 70
     )
 
+def plot_receiver_summary_figure(
+    cover_image,
+    stego_image,
+    payload_type,
+    metrics,
+    secret_image=None,
+    output_path=None
+):
+    cover_uint8 = np.rint(np.clip(cover_image, 0.0, 255.0)).astype(np.uint8)
+    stego_uint8 = np.rint(np.clip(stego_image, 0.0, 255.0)).astype(np.uint8)
 
+    fig = plt.figure(figsize=(15, 10))
+    gs = fig.add_gridspec(2, 3, height_ratios=[1.2, 1.0])
+
+    ax_cover = fig.add_subplot(gs[0, 0])
+    ax_cover.imshow(cover_uint8, cmap="gray")
+    ax_cover.set_title("Cover Image", fontsize=12)
+    ax_cover.axis("off")
+
+    ax_secret = fig.add_subplot(gs[0, 1])
+    if payload_type == "image" and secret_image is not None:
+        secret_uint8 = np.asarray(secret_image.convert("L"), dtype=np.uint8)
+        ax_secret.imshow(secret_uint8, cmap="gray")
+        ax_secret.set_title("Secret Image", fontsize=12)
+        ax_secret.axis("off")
+    else:
+        ax_secret.set_facecolor("#f0f0f0")
+        ax_secret.text(
+            0.5,
+            0.5,
+            "DATA IS TEXT",
+            ha="center",
+            va="center",
+            fontsize=14,
+            color="#222222"
+        )
+        ax_secret.set_title("Secret Payload", fontsize=12)
+        ax_secret.set_xticks([])
+        ax_secret.set_yticks([])
+        for spine in ax_secret.spines.values():
+            spine.set_edgecolor("#555555")
+            spine.set_linewidth(1.5)
+
+    ax_stego = fig.add_subplot(gs[0, 2])
+    ax_stego.imshow(stego_uint8, cmap="gray")
+    ax_stego.set_title("Stego Image", fontsize=12)
+    ax_stego.axis("off")
+
+    ax_table = fig.add_subplot(gs[1, :])
+    ax_table.axis("off")
+
+    table_data = [
+        ["PSNR (dB)", str(metrics.get("psnr", "N/A")), "SSIM", str(metrics.get("ssim", "N/A"))],
+        ["MSE", str(metrics.get("mse", "N/A")), "MAE", str(metrics.get("mae", "N/A"))],
+        ["RMSE", str(metrics.get("rmse", "N/A")), "Original Entropy", str(metrics.get("original_entropy", "N/A"))],
+        ["Stego Entropy", str(metrics.get("stego_entropy", "N/A")), "KL Divergence", str(metrics.get("kl_divergence", "N/A"))],
+        ["Histogram Similarity", str(metrics.get("histogram_similarity", "N/A")), "NPCR (%)", str(metrics.get("npcr", "N/A"))],
+        ["UACI (%)", str(metrics.get("uaci", "N/A")), "BER", str(metrics.get("ber", "N/A"))],
+        ["BPP", str(metrics.get("bpp", "N/A")), "Max Absolute Change", str(metrics.get("maximum_absolute_change", "N/A"))],
+        [
+            "Payload Type",
+            payload_type.upper(),
+            "Secret Image/Data Bits",
+            str(metrics.get("message_bits", "N/A"))
+        ],
+
+        [
+            "QKD Subkey Bits",
+            str(metrics.get("qkd_subkey_bits", "N/A")),
+            "Total Embedded Bits",
+            str(metrics.get("embedded_bits", "N/A"))
+        ]
+    ]
+
+    col_labels = ["Metric", "Value", "Metric", "Value"]
+    table = ax_table.table(
+        cellText=table_data,
+        colLabels=col_labels,
+        loc="center",
+        cellLoc="center"
+    )
+    table.auto_set_font_size(False)
+    table.set_fontsize(8.5)
+    table.scale(1.0, 1.3)
+
+    plt.tight_layout(rect=[0, 0, 1, 0.95])
+
+    if output_path:
+        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+
+    plt.show()
 def receiver():
     OUTPUT_DIR.mkdir(
         parents=True,
@@ -5871,9 +5978,13 @@ def receiver():
             stego_bytes
         )
 
-        stego_image = np.load(
+        with Image.open(
             stego_path
-        )
+        ) as image:
+            stego_image = np.asarray(
+                image,
+                dtype=np.float64
+            )
 
         received_coefficients = pywt.dwt2(
             stego_image,
@@ -6038,9 +6149,12 @@ def receiver():
         metrics = calculate_metrics(
             original_image,
             stego_image,
-            message_bits,
+            total_embedded_bits,
             0.0
         )
+        metrics["message_bits"] = int(message_bits)
+        metrics["qkd_subkey_bits"] = int(qkd_subkey_bits)
+        metrics["embedded_bits"] = int(total_embedded_bits)
 
 
 
@@ -6269,12 +6383,9 @@ def receiver():
 
         print("=" * 70)
 
+        secret_img_to_plot = None
         if payload_type == "text":
-
-            recovered_message = recovered_bytes.decode(
-                "utf-8"
-            )
-
+            recovered_message = recovered_bytes.decode("utf-8")
             print()
             print("=" * 70)
             print("RECOVERED MESSAGE")
@@ -6283,19 +6394,28 @@ def receiver():
             print("=" * 70)
 
         elif payload_type == "image":
-
             process_received_image(
                 recovered_bytes,
                 OUTPUT_DIR,
                 original_secret_bytes,
                 receiver_secret_metrics["ber"]
             )
+            secret_img_to_plot = reconstructed_secret_image
 
         else:
-
             raise RuntimeError(
                 f"Unknown payload type: {payload_type}"
             )
+
+        # Plot Cover + Secret + Stego with the complete raw metrics table below
+        plot_receiver_summary_figure(
+            cover_image=original_image,
+            stego_image=stego_image,
+            payload_type=payload_type,
+            metrics=metrics,
+            secret_image=secret_img_to_plot,
+            output_path=OUTPUT_DIR / "receiver_summary_plot.png"
+        )
 
 
 def launch_sender_receiver():
@@ -6380,6 +6500,7 @@ def main():
         raise SystemExit(
             "Invalid execution mode."
         )
+    
 
 
 

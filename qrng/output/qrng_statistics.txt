@@ -1,8 +1,0 @@
-IBM QUANTUM QRNG STATISTICS
-==================================================
-
-Backend : ibm_fez
-Blocks Generated : 6
-Total Shots : 98304
-Total Bits : 3145728
-Bits Per Shot : 156

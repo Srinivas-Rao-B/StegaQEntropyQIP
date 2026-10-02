@@ -1,8 +1,0 @@
-======================================================================
-HISTORY CHECKER SUMMARY
-======================================================================
-
-History Records        : 286
-Verified Seeds         : 26
-Duplicate Seeds        : 26
-Rejected Seeds         : 0

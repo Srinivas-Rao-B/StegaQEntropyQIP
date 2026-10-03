@@ -85,6 +85,13 @@ Before execution, update any input file paths in the configuration or correspond
 
 This ensures that the complete pipeline can be reproduced on another system without requiring the large generated output files to be stored in the GitHub repository.
 
+## Secret Image Payload Preparation
+
+- The uploaded secret image is converted into a compact, payload-bounded representation before embedding.
+- The compressed representation, rather than the original uncompressed image data, is used as the image payload transmitted through the steganographic channel.
+- For the ~26K-bit experimental configuration, sender-side compression is used to satisfy the predefined payload budget before embedding.
+- The receiver does not require the original secret image; it extracts the compressed representation and reconstructs the secret image from the recovered payload.
+- The compressed payload is subsequently processed by the existing QRNG-driven chunking and security pipeline.
 
 # 2. Repository Structure
 

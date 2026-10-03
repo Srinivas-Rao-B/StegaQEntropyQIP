@@ -86,7 +86,7 @@ QBER_THRESHOLD = 0.11
 
 # --- IBM Quantum Hardware Configuration ---
 USE_REAL_IBM_HARDWARE = False  # Set to True to execute on real IBM quantum hardware
-IBM_API_TOKEN = "YOUR API HERE"
+IBM_API_TOKEN = "BDPK4kcunb5KV8r_3YEh-CpPGIEpKwOF1lspGy-YZKnN"
 
 
 class QRNG:
@@ -4108,6 +4108,25 @@ def sender():
     print(
         f"Receiver connected: {address}"
     )
+    print(
+        "\n[PAYLOAD] Uploaded secret image compressed to a target-bounded representation."
+    )
+
+    print(
+        "\n[PAYLOAD] Only the compressed image payload is transmitted and embedded; "
+        "the original uncompressed image data is not carried through the steganographic channel."
+    )
+
+    print(
+        "\n[~26K-BIT PAYLOAD] Sender-side compression reduces the secret image representation "
+        "to comply with the predefined payload budget before embedding."
+    )
+
+    print(
+        "\n[RECEIVER] The receiver does not require the original secret image; "
+        "it extracts the compressed representation and reconstructs the secret image "
+        "from the recovered payload."
+    )
 
     with connection:
         send_packet(
@@ -5670,98 +5689,484 @@ def display_image_in_terminal(
     print(
         "=" * 70
     )
+    
+    
+def calculate_secret_image_psnr(
+    sender_image,
+    receiver_image
+):
+    original = np.asarray(
+        sender_image.convert("L"),
+        dtype=np.float64
+    )
 
+    reconstructed = np.asarray(
+        receiver_image.convert("L"),
+        dtype=np.float64
+    )
+
+    if original.shape != reconstructed.shape:
+        reconstructed = np.asarray(
+            receiver_image.resize(
+                sender_image.size,
+                Image.Resampling.LANCZOS
+            ).convert("L"),
+            dtype=np.float64
+        )
+
+    mse = np.mean(
+        (original - reconstructed) ** 2
+    )
+
+    if mse == 0:
+        return float("inf")
+
+    return 10.0 * np.log10(
+        (255.0 ** 2) / mse
+    )
 def plot_receiver_summary_figure(
     cover_image,
     stego_image,
     payload_type,
     metrics,
     secret_image=None,
+    sender_secret_image=None,
     output_path=None
 ):
-    cover_uint8 = np.rint(np.clip(cover_image, 0.0, 255.0)).astype(np.uint8)
-    stego_uint8 = np.rint(np.clip(stego_image, 0.0, 255.0)).astype(np.uint8)
+    cover_uint8 = np.rint(
+        np.clip(
+            cover_image,
+            0.0,
+            255.0
+        )
+    ).astype(
+        np.uint8
+    )
 
-    fig = plt.figure(figsize=(15, 10))
-    gs = fig.add_gridspec(2, 3, height_ratios=[1.2, 1.0])
+    stego_uint8 = np.rint(
+        np.clip(
+            stego_image,
+            0.0,
+            255.0
+        )
+    ).astype(
+        np.uint8
+    )
 
-    ax_cover = fig.add_subplot(gs[0, 0])
-    ax_cover.imshow(cover_uint8, cmap="gray")
-    ax_cover.set_title("Cover Image", fontsize=12)
-    ax_cover.axis("off")
+    fig = plt.figure(
+        figsize=(20, 8)
+    )
 
-    ax_secret = fig.add_subplot(gs[0, 1])
-    if payload_type == "image" and secret_image is not None:
-        secret_uint8 = np.asarray(secret_image.convert("L"), dtype=np.uint8)
-        ax_secret.imshow(secret_uint8, cmap="gray")
-        ax_secret.set_title("Secret Image", fontsize=12)
-        ax_secret.axis("off")
+    gs = fig.add_gridspec(
+        2,
+        4,
+        height_ratios=[1.4, 1.0]
+    )
+
+    ax_cover = fig.add_subplot(
+        gs[0, 0]
+    )
+
+    ax_cover.imshow(
+        cover_uint8,
+        cmap="gray"
+    )
+
+    ax_cover.set_title(
+        "Original Cover Image",
+        fontsize=12
+    )
+
+    ax_cover.axis(
+        "off"
+    )
+
+    ax_sender_secret = fig.add_subplot(
+        gs[0, 1]
+    )
+
+    if (
+        payload_type == "image"
+        and sender_secret_image is not None
+    ):
+        sender_secret_uint8 = np.asarray(
+            sender_secret_image.convert("L"),
+            dtype=np.uint8
+        )
+
+        ax_sender_secret.imshow(
+            sender_secret_uint8,
+            cmap="gray"
+        )
+
+        ax_sender_secret.set_title(
+            "Compressed Secret (Sender)",
+            fontsize=12
+        )
+
+        ax_sender_secret.axis(
+            "off"
+        )
+
     else:
-        ax_secret.set_facecolor("#f0f0f0")
-        ax_secret.text(
+        ax_sender_secret.set_facecolor(
+            "#f0f0f0"
+        )
+
+        ax_sender_secret.text(
             0.5,
             0.5,
-            "DATA IS TEXT",
+            "NO IMAGE PAYLOAD",
             ha="center",
             va="center",
-            fontsize=14,
-            color="#222222"
+            fontsize=12
         )
-        ax_secret.set_title("Secret Payload", fontsize=12)
-        ax_secret.set_xticks([])
-        ax_secret.set_yticks([])
-        for spine in ax_secret.spines.values():
-            spine.set_edgecolor("#555555")
-            spine.set_linewidth(1.5)
 
-    ax_stego = fig.add_subplot(gs[0, 2])
-    ax_stego.imshow(stego_uint8, cmap="gray")
-    ax_stego.set_title("Stego Image", fontsize=12)
-    ax_stego.axis("off")
+        ax_sender_secret.set_title(
+            "Compressed Secret (Sender)",
+            fontsize=12
+        )
 
-    ax_table = fig.add_subplot(gs[1, :])
-    ax_table.axis("off")
+        ax_sender_secret.set_xticks([])
+        ax_sender_secret.set_yticks([])
+
+    ax_stego = fig.add_subplot(
+        gs[0, 2]
+    )
+
+    ax_stego.imshow(
+        stego_uint8,
+        cmap="gray"
+    )
+
+    ax_stego.set_title(
+        "Stego Image",
+        fontsize=12
+    )
+
+    ax_stego.axis(
+        "off"
+    )
+
+    ax_receiver_secret = fig.add_subplot(
+        gs[0, 3]
+    )
+
+    if (
+        payload_type == "image"
+        and secret_image is not None
+    ):
+        receiver_secret_uint8 = np.asarray(
+            secret_image.convert("L"),
+            dtype=np.uint8
+        )
+
+        ax_receiver_secret.imshow(
+            receiver_secret_uint8,
+            cmap="gray"
+        )
+
+        ax_receiver_secret.set_title(
+            "Extracted Secret (Receiver)",
+            fontsize=12
+        )
+
+        ax_receiver_secret.axis(
+            "off"
+        )
+
+    else:
+        ax_receiver_secret.set_facecolor(
+            "#f0f0f0"
+        )
+
+        ax_receiver_secret.text(
+            0.5,
+            0.5,
+            "NO IMAGE PAYLOAD",
+            ha="center",
+            va="center",
+            fontsize=12
+        )
+
+        ax_receiver_secret.set_title(
+            "Extracted Secret (Receiver)",
+            fontsize=12
+        )
+
+        ax_receiver_secret.set_xticks([])
+        ax_receiver_secret.set_yticks([])
+
+    ax_table = fig.add_subplot(
+        gs[1, :]
+    )
+
+    ax_table.axis(
+        "off"
+    )
+    ber_value = metrics.get(
+        "ber",
+        None
+    )
+
+    try:
+        ber_numeric = float(
+            ber_value
+        )
+
+        extraction_score = max(
+            0.0,
+            min(
+                100.0,
+                (1.0 - ber_numeric) * 100.0
+            )
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+        extraction_score = None
+
+    if payload_type == "image":
+
+        if extraction_score is not None:
+            extraction_score_text = (
+                f"{extraction_score:.4f}%"
+            )
+        else:
+            extraction_score_text = "N/A"
+
+        secret_psnr = metrics.get(
+            "secret_image_psnr",
+            "N/A"
+        )
+
+        if secret_psnr != "N/A":
+            secret_psnr_text = (
+                f"{secret_psnr} dB"
+            )
+        else:
+            secret_psnr_text = "N/A"
+
+        extraction_label = "Extraction Score"
+        extraction_value = extraction_score_text
+
+        secret_metric_label = "Secret Image PSNR"
+        secret_metric_value = secret_psnr_text
+
+    else:
+
+        if (
+            extraction_score is not None
+            and extraction_score >= 100.0
+        ):
+            extraction_value = (
+                "ALL DATA RECOVERED EXACTLY"
+            )
+        else:
+            extraction_value = (
+                f"{extraction_score:.4f}%"
+                if extraction_score is not None
+                else "N/A"
+            )
+
+        extraction_label = "Extraction Result"
+        secret_metric_label = "Secret Data"
+        secret_metric_value = "Text Payload"
 
     table_data = [
-        ["PSNR (dB)", str(metrics.get("psnr", "N/A")), "SSIM", str(metrics.get("ssim", "N/A"))],
-        ["MSE", str(metrics.get("mse", "N/A")), "MAE", str(metrics.get("mae", "N/A"))],
-        ["RMSE", str(metrics.get("rmse", "N/A")), "Original Entropy", str(metrics.get("original_entropy", "N/A"))],
-        ["Stego Entropy", str(metrics.get("stego_entropy", "N/A")), "KL Divergence", str(metrics.get("kl_divergence", "N/A"))],
-        ["Histogram Similarity", str(metrics.get("histogram_similarity", "N/A")), "NPCR (%)", str(metrics.get("npcr", "N/A"))],
-        ["UACI (%)", str(metrics.get("uaci", "N/A")), "BER", str(metrics.get("ber", "N/A"))],
-        ["BPP", str(metrics.get("bpp", "N/A")), "Max Absolute Change", str(metrics.get("maximum_absolute_change", "N/A"))],
+        [
+            "PSNR (dB)",
+            str(
+                metrics.get(
+                    "psnr",
+                    "N/A"
+                )
+            ),
+            "SSIM",
+            str(
+                metrics.get(
+                    "ssim",
+                    "N/A"
+                )
+            )
+        ],
+        [
+            "MSE",
+            str(
+                metrics.get(
+                    "mse",
+                    "N/A"
+                )
+            ),
+            "MAE",
+            str(
+                metrics.get(
+                    "mae",
+                    "N/A"
+                )
+            )
+        ],
+        [
+            "RMSE",
+            str(
+                metrics.get(
+                    "rmse",
+                    "N/A"
+                )
+            ),
+            "Original Entropy",
+            str(
+                metrics.get(
+                    "original_entropy",
+                    "N/A"
+                )
+            )
+        ],
+        [
+            "Stego Entropy",
+            str(
+                metrics.get(
+                    "stego_entropy",
+                    "N/A"
+                )
+            ),
+            "KL Divergence",
+            str(
+                metrics.get(
+                    "kl_divergence",
+                    "N/A"
+                )
+            )
+        ],
+        [
+            "Histogram Similarity",
+            str(
+                metrics.get(
+                    "histogram_similarity",
+                    "N/A"
+                )
+            ),
+            "NPCR (%)",
+            str(
+                metrics.get(
+                    "npcr",
+                    "N/A"
+                )
+            )
+        ],
+        [
+            "UACI (%)",
+            str(
+                metrics.get(
+                    "uaci",
+                    "N/A"
+                )
+            ),
+            "BER",
+            str(
+                metrics.get(
+                    "ber",
+                    "N/A"
+                )
+            )
+        ],
+        [
+            extraction_label,
+            extraction_value,
+            secret_metric_label,
+            secret_metric_value
+        ],
+        [
+            "BPP",
+            str(
+                metrics.get(
+                    "bpp",
+                    "N/A"
+                )
+            ),
+            "Max Absolute Change",
+            str(
+                metrics.get(
+                    "maximum_absolute_change",
+                    "N/A"
+                )
+            )
+        ],
         [
             "Payload Type",
             payload_type.upper(),
             "Secret Image/Data Bits",
-            str(metrics.get("message_bits", "N/A"))
+            str(
+                metrics.get(
+                    "message_bits",
+                    "N/A"
+                )
+            )
         ],
-
         [
             "QKD Subkey Bits",
-            str(metrics.get("qkd_subkey_bits", "N/A")),
+            str(
+                metrics.get(
+                    "qkd_subkey_bits",
+                    "N/A"
+                )
+            ),
             "Total Embedded Bits",
-            str(metrics.get("embedded_bits", "N/A"))
+            str(
+                metrics.get(
+                    "embedded_bits",
+                    "N/A"
+                )
+            )
         ]
     ]
+    col_labels = [
+        "Metric",
+        "Value",
+        "Metric",
+        "Value"
+    ]
 
-    col_labels = ["Metric", "Value", "Metric", "Value"]
     table = ax_table.table(
         cellText=table_data,
         colLabels=col_labels,
         loc="center",
         cellLoc="center"
     )
-    table.auto_set_font_size(False)
-    table.set_fontsize(8.5)
-    table.scale(1.0, 1.3)
 
-    plt.tight_layout(rect=[0, 0, 1, 0.95])
+    table.auto_set_font_size(
+        False
+    )
+
+    table.set_fontsize(
+        8.5
+    )
+
+    table.scale(
+        1.0,
+        1.3
+    )
+
+    plt.tight_layout(
+        rect=[
+            0,
+            0,
+            1,
+            0.95
+        ]
+    )
 
     if output_path:
-        plt.savefig(output_path, dpi=300, bbox_inches="tight")
+        plt.savefig(
+            output_path,
+            dpi=300,
+            bbox_inches="tight"
+        )
 
     plt.show()
+
 def receiver():
     OUTPUT_DIR.mkdir(
         parents=True,
@@ -6407,12 +6812,19 @@ def receiver():
                 f"Unknown payload type: {payload_type}"
             )
 
+        secret_image_psnr = calculate_secret_image_psnr(
+            original_secret_image,
+            reconstructed_secret_image
+        )
+
+        metrics["secret_image_psnr"] = secret_image_psnr
         # Plot Cover + Secret + Stego with the complete raw metrics table below
         plot_receiver_summary_figure(
             cover_image=original_image,
             stego_image=stego_image,
             payload_type=payload_type,
             metrics=metrics,
+            sender_secret_image=original_secret_image,
             secret_image=secret_img_to_plot,
             output_path=OUTPUT_DIR / "receiver_summary_plot.png"
         )

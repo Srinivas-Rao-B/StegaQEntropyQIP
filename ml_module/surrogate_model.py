@@ -7,7 +7,12 @@ import pandas as pd
 import tensorflow as tf
 
 tf.get_logger().setLevel("ERROR")
-
+# The SQE-Net quantum circuit (SQENetQuantumLayer) evolves a genuine complex
+# state vector; TF's autodiff correctly backpropagates only the real part of
+# the Pauli-Z measurement into the angle-projection weights (which is exactly
+# what we want, since the model's loss is real-valued), and logs an
+# informational "discarding imaginary part" notice while doing so. That
+# notice is expected here and does not indicate a problem, so it is silenced.
 import warnings as _warnings
 _warnings.filterwarnings(
     "ignore",
@@ -28,8 +33,12 @@ import seaborn as sns
 ABLATE_SQE_NET = False
 ABLATE_QOQA = False
 ABLATE_ACER = False
+GENERATE_VISUALIZATIONS = False
+
 import runpy
+
 runpy.run_module("dataset_cleaner", run_name="__main__")
+
 try:
     from acer_simulator import ACERSimulatorBackend  # type: ignore[import-not-found]
 except ImportError:
@@ -970,7 +979,7 @@ def configure_message_type(res):
         PAYLOAD_RATIO = 0.70
 
     elif res == 2:
-        EXACT_TOTAL_BITS = 28000
+        EXACT_TOTAL_BITS = 45000
         MAX_REGIONS_TARGET = 350
         PAYLOAD_RATIO = 0.95
 
@@ -4779,23 +4788,24 @@ def qoqa_acer_qrng_endless_loop(
                     final_combined_embedding
                 )
             )
-
-            generate_quantum_qoqa_visualizations(
-                model=model,
-                df=df,
-                selected_regions=final_selected_regions,
-                selected_embeddings=final_selected_embeddings,
-                combined_embedding=final_combined_embedding,
-                selection_probs=selection_probs,
-                selection_scores=selection_scores,
-                region_predictions=region_predictions,
-                regression_columns=regression_columns,
-                output_dir=OUTPUT_DIR,
-                target_regions_count=target_regions_count,
-                row_col="row",
-                col_col="col",
-                quantum_features=final_acer_quantum_features
-            )
+            
+            if GENERATE_VISUALIZATIONS:
+                generate_quantum_qoqa_visualizations(
+                    model=model,
+                    df=df,
+                    selected_regions=final_selected_regions,
+                    selected_embeddings=final_selected_embeddings,
+                    combined_embedding=final_combined_embedding,
+                    selection_probs=selection_probs,
+                    selection_scores=selection_scores,
+                    region_predictions=region_predictions,
+                    regression_columns=regression_columns,
+                    output_dir=OUTPUT_DIR,
+                    target_regions_count=target_regions_count,
+                    row_col="row",
+                    col_col="col",
+                    quantum_features=final_acer_quantum_features
+                )
 
             if qoqa_last_result is not None:
                 save_qoqa_quantum_diagnostics(

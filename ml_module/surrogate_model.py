@@ -33,7 +33,7 @@ import seaborn as sns
 ABLATE_SQE_NET = False
 ABLATE_QOQA = False
 ABLATE_ACER = False
-GENERATE_VISUALIZATIONS = True
+GENERATE_VISUALIZATIONS = False
 
 import runpy
 
@@ -974,9 +974,9 @@ def configure_message_type(res):
     global EXACT_TOTAL_BITS, MAX_REGIONS_TARGET, PAYLOAD_RATIO
 
     if res == 1:
-        EXACT_TOTAL_BITS = 20000
+        EXACT_TOTAL_BITS = 22000
         MAX_REGIONS_TARGET = 275
-        PAYLOAD_RATIO = 0.70
+        PAYLOAD_RATIO = 0.95
 
     elif res == 2:
         EXACT_TOTAL_BITS = 45000

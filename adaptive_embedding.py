@@ -5959,7 +5959,7 @@ def plot_receiver_summary_figure(
         1.0,
         1.3
     )
-
+    
     plt.tight_layout(
         rect=[
             0,
@@ -6623,22 +6623,33 @@ def receiver():
                 f"Unknown payload type: {payload_type}"
             )
 
-        secret_image_psnr = calculate_secret_image_psnr(
-            original_secret_image,
-            reconstructed_secret_image
-        )
+        if payload_type == "image":
+            secret_image_psnr = calculate_secret_image_psnr(
+                original_secret_image,
+                reconstructed_secret_image
+            )
 
-        metrics["secret_image_psnr"] = secret_image_psnr
-        # Plot Cover + Secret + Stego with the complete raw metrics table below
-        plot_receiver_summary_figure(
-            cover_image=original_image,
-            stego_image=stego_image,
-            payload_type=payload_type,
-            metrics=metrics,
-            sender_secret_image=original_secret_image,
-            secret_image=secret_img_to_plot,
-            output_path=OUTPUT_DIR / "receiver_summary_plot.png"
-        )
+            metrics["secret_image_psnr"] = secret_image_psnr
+
+            plot_receiver_summary_figure(
+                cover_image=original_image,
+                stego_image=stego_image,
+                payload_type=payload_type,
+                metrics=metrics,
+                sender_secret_image=original_secret_image,
+                secret_image=secret_img_to_plot,
+                output_path=OUTPUT_DIR / "receiver_summary_plot.png"
+            )
+        else:
+            plot_receiver_summary_figure(
+                cover_image=original_image,
+                stego_image=stego_image,
+                payload_type=payload_type,
+                metrics=metrics,
+                sender_secret_image=None,
+                secret_image=None,
+                output_path=OUTPUT_DIR / "receiver_summary_plot.png"
+            )
 
 
 def launch_sender_receiver():

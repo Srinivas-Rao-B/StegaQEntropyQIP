@@ -2556,8 +2556,18 @@ def embed(
     print(
         "=" * 70
     )
+    active_region_ids = {
+        operation["region_id"]
+        for operation in operations
+        if operation.get("allocated_bits", 0) > 0
+    }
+
     print(
-        f"Selected regions       : {len(operations)}"
+        f"Active embedding regions : {len(active_region_ids)}"
+    )
+
+    print(
+        f"Embedding operations     : {len(operations)}"
     )
     print(
         f"Total payload bits     : {total_payload_bits}"
@@ -3254,174 +3264,11 @@ def create_operations_from_chunk_mapping(
             }
         )
 
-    selected_ids = {
-        normalize_region_id(
-            operation["region_id"]
-        )
-        for operation in operations
-    }
-
-    try:
-        metadata_df = pd.read_csv(
-            REGION_METADATA_CSV
-        )
-    except Exception:
-        metadata_df = None
-
-    if metadata_df is not None:
-
-        region_id_column = None
-
-        for column in [
-            "region_id",
-            "region_index",
-            "id",
-            "index"
-        ]:
-
-            if column in metadata_df.columns:
-                region_id_column = column
-                break
-
-        capacity_column = None
-
-        for column in [
-            "actual_safe_capacity",
-            "safe_capacity",
-            "capacity"
-        ]:
-
-            if column in metadata_df.columns:
-                capacity_column = column
-                break
-
-        row_column = None
-
-        for column in [
-            "row",
-            "row_start",
-            "region_row"
-        ]:
-
-            if column in metadata_df.columns:
-                row_column = column
-                break
-
-        col_column = None
-
-        for column in [
-            "col",
-            "column_start",
-            "region_col"
-        ]:
-
-            if column in metadata_df.columns:
-                col_column = column
-                break
-
-        if (
-            region_id_column is not None
-            and capacity_column is not None
-            and row_column is not None
-            and col_column is not None
-        ):
-
-            fallback_records = []
-
-            for _, record in metadata_df.iterrows():
-
-                try:
-                    region_id = normalize_region_id(
-                        record[region_id_column]
-                    )
-                except Exception:
-                    continue
-
-                if region_id in selected_ids:
-                    continue
-
-                value = pd.to_numeric(
-                    record[capacity_column],
-                    errors="coerce"
-                )
-
-                if not np.isfinite(value):
-                    continue
-
-                usable_capacity = int(
-                    np.floor(
-                        float(value)
-                        * 0.95
-                    )
-                )
-
-                if usable_capacity <= 0:
-                    continue
-
-                try:
-                    row = int(
-                        round(
-                            float(
-                                record[row_column]
-                            )
-                        )
-                    )
-
-                    col = int(
-                        round(
-                            float(
-                                record[col_column]
-                            )
-                        )
-                    )
-
-                except Exception:
-                    continue
-
-                fallback_records.append(
-                    {
-                        "region_id": region_id,
-                        "row": row,
-                        "col": col,
-                        "dwt_row": int(
-                            round(
-                                row / 2.0
-                            )
-                        ),
-                        "dwt_col": int(
-                            round(
-                                col / 2.0
-                            )
-                        ),
-                        "payload_bits":
-                            usable_capacity,
-                        "ml_payload_bits":
-                            usable_capacity
-                    }
-                )
-
-            fallback_seed = int(
-                qrng.take(
-                    256
-                ),
-                2
-            )
-
-            fallback_rng = random.Random(
-                fallback_seed
-            )
-
-            fallback_rng.shuffle(
-                fallback_records
-            )
-
-            operations.extend(
-                fallback_records
-            )
+    
 
     if not operations:
         raise RuntimeError(
-            "No usable selected regions are available."
+            "No usable QOQA-selected regions are available."
         )
 
     return operations
@@ -4245,7 +4092,7 @@ def sender():
                 io.BytesIO(
                     original_secret_bytes
                 )
-            ).convert("L")
+            ).convert("RGB")
 
             original_secret_image.load()
 
@@ -4971,7 +4818,7 @@ def process_received_image(
             io.BytesIO(
                 recovered_bytes
             )
-        ).convert("L")
+        ).convert("RGB")
 
         reconstructed_image.load()
 
@@ -5003,7 +4850,7 @@ def process_received_image(
             io.BytesIO(
                 original_secret_bytes
             )
-        ).convert("L")
+        ).convert("RGB")
 
         original_image.load()
 
@@ -5071,31 +4918,21 @@ def process_received_image(
     # CNN IMAGE RESTORATION
     # ---------------------------------------------------------------
 
-    cnn_restored_image, cnn_model = restore_image_with_cnn(
-        reconstructed_image,
-        original_image,
-        epochs=500,
-        learning_rate=0.001
-    )
+    cnn_restored_image = reconstructed_image
+    cnn_model = None
 
     cnn_restored_path = (
         output_dir
         / "received_cnn_restored_image.png"
     )
 
-    cnn_restored_image.save(
+    reconstructed_image.save(
         cnn_restored_path
     )
 
-    cnn_model_path = (
-        output_dir
-        / "receiver_cnn_model.pth"
-    )
+    
 
-    torch.save(
-        cnn_model.state_dict(),
-        cnn_model_path
-    )
+    
 
     # ---------------------------------------------------------------
     # CNN RESTORED IMAGE METRICS
@@ -5140,10 +4977,7 @@ def process_received_image(
         f"{cnn_restored_path}"
     )
 
-    print(
-        f"CNN Model File            : "
-        f"{cnn_model_path}"
-    )
+    
 
     print(
         f"CNN Metrics File          : "
@@ -5247,12 +5081,12 @@ def calculate_secret_image_metrics(
     ber=0.0
 ):
     original = np.asarray(
-        original_image.convert("L"),
+        original_image.convert("RGB"),
         dtype=np.uint8
     )
 
     reconstructed = np.asarray(
-        reconstructed_image.convert("L"),
+        reconstructed_image.convert("RGB"),
         dtype=np.uint8
     )
 
@@ -5321,7 +5155,8 @@ def calculate_secret_image_metrics(
         structural_similarity(
             original,
             reconstructed,
-            data_range=255
+            data_range=255,
+            channel_axis=-1
         )
     )
 
@@ -5603,13 +5438,12 @@ def calculate_secret_image_metrics(
     )
 
     return metrics
-
 def display_image_in_terminal(
     image,
     title="IMAGE",
     max_width=64
 ):
-    image = image.convert("L")
+    image = image.convert("RGB")
 
     width, height = image.size
 
@@ -5619,8 +5453,7 @@ def display_image_in_terminal(
         height = max(
             2,
             int(
-                height
-                * scale
+                height * scale
             )
         )
 
@@ -5638,32 +5471,21 @@ def display_image_in_terminal(
     )
 
     print()
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
     print(title)
-    print(
-        "=" * 70
-    )
+    print("=" * 70)
 
     for row in range(
         0,
         pixels.shape[0],
         2
     ):
-
-        upper = pixels[
-            row
-        ]
+        upper = pixels[row]
 
         if row + 1 < pixels.shape[0]:
-            lower = pixels[
-                row + 1
-            ]
+            lower = pixels[row + 1]
         else:
-            lower = np.zeros_like(
-                upper
-            )
+            lower = np.zeros_like(upper)
 
         line = []
 
@@ -5671,37 +5493,28 @@ def display_image_in_terminal(
             upper,
             lower
         ):
-
             line.append(
-                f"\x1b[38;2;{int(top)};{int(top)};{int(top)}m"
-                f"\x1b[48;2;{int(bottom)};{int(bottom)};{int(bottom)}m"
+                f"\x1b[38;2;{int(top[0])};{int(top[1])};{int(top[2])}m"
+                f"\x1b[48;2;{int(bottom[0])};{int(bottom[1])};{int(bottom[2])}m"
                 "▀"
             )
 
-        line.append(
-            "\x1b[0m"
-        )
+        line.append("\x1b[0m")
 
-        print(
-            "".join(line)
-        )
+        print("".join(line))
 
-    print(
-        "=" * 70
-    )
-    
-    
+    print("=" * 70)  
 def calculate_secret_image_psnr(
     sender_image,
     receiver_image
 ):
     original = np.asarray(
-        sender_image.convert("L"),
+        sender_image.convert("RGB"),
         dtype=np.float64
     )
 
     reconstructed = np.asarray(
-        receiver_image.convert("L"),
+        receiver_image.convert("RGB"),
         dtype=np.float64
     )
 
@@ -5710,7 +5523,7 @@ def calculate_secret_image_psnr(
             receiver_image.resize(
                 sender_image.size,
                 Image.Resampling.LANCZOS
-            ).convert("L"),
+            ).convert("RGB"),
             dtype=np.float64
         )
 
@@ -5790,13 +5603,12 @@ def plot_receiver_summary_figure(
         and sender_secret_image is not None
     ):
         sender_secret_uint8 = np.asarray(
-            sender_secret_image.convert("L"),
+            sender_secret_image.convert("RGB"),
             dtype=np.uint8
         )
 
         ax_sender_secret.imshow(
-            sender_secret_uint8,
-            cmap="gray"
+            sender_secret_uint8
         )
 
         ax_sender_secret.set_title(
@@ -5857,13 +5669,12 @@ def plot_receiver_summary_figure(
         and secret_image is not None
     ):
         receiver_secret_uint8 = np.asarray(
-            secret_image.convert("L"),
+            secret_image.convert("RGB"),
             dtype=np.uint8
         )
 
         ax_receiver_secret.imshow(
-            receiver_secret_uint8,
-            cmap="gray"
+            receiver_secret_uint8
         )
 
         ax_receiver_secret.set_title(
@@ -6584,7 +6395,7 @@ def receiver():
                 io.BytesIO(
                     original_secret_bytes
                 )
-            ).convert("L")
+            ).convert("RGB")
 
             original_secret_image.load()
 
@@ -6592,7 +6403,7 @@ def receiver():
                 io.BytesIO(
                     recovered_bytes
                 )
-            ).convert("L")
+            ).convert("RGB")
 
             reconstructed_secret_image.load()
 

@@ -33,7 +33,7 @@ import seaborn as sns
 ABLATE_SQE_NET = False
 ABLATE_QOQA = False
 ABLATE_ACER = False
-GENERATE_VISUALIZATIONS = False
+GENERATE_VISUALIZATIONS = True
 
 import runpy
 
